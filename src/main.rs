@@ -68,7 +68,7 @@ fn describe_group_x86(g: &u8) -> Option<&'static str> {
 }
 
 /// These are from capstone/include/arm64.h
-fn describe_group_aarch64(g: &u8) -> Option<&'static str> {
+fn describe_group_arm(g: &u8) -> Option<&'static str> {
     Some(match *g {
         128 => "CRYPTO",  // https://github.com/aquynh/capstone/blob/master/include/aarch64.h
         129 => "FPARMV8", // Appears to map to both fp and fp16 instruction sets
@@ -98,6 +98,85 @@ fn describe_group_aarch64(g: &u8) -> Option<&'static str> {
         153 => "V8_1A",
         154 => "V8_3A",
         155 => "V8_4A",
+        _ => {
+            return None;
+        }
+    })
+}
+
+fn describe_group_mips(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        128 => "BICOUNT",
+        129 => "DSP", // Appears to map to both fp and fp16 instruction sets
+        130 => "DSPR2",
+        131 => "FPIDX",
+        132 => "MSA",
+        133 => "MIPS32R2",
+        134 => "MIPS64",
+        135 => "MIPS64R2",
+        136 => "SEINREG",
+        137 => "STDENC",
+        138 => "SWAP",
+        139 => "MICROMIPS",
+        140 => "MIPS16MODE",
+        141 => "FP64BIT",
+        142 => "NONANSFPMATH",
+        143 => "NOTFP64BIT",
+        144 => "NOTINMICROMIPS",
+        145 => "NOTNACL",
+        146 => "NOTMIPS32R6",
+        147 => "NOTMIPS64R6",
+        148 => "CNMIPS",
+        149 => "MIPS32",
+        150 => "MIPS32R6",
+        151 => "MIPS64R6",
+        152 => "MIPS2",
+        153 => "MIPS3",
+        154 => "MIPS3_32",
+        155 => "MIPS3_32R2",
+        156 => "MIPS4_32",
+        157 => "MIPS4_32R2",
+        158 => "MIPS5_32R2",
+        159 => "GP32BIT",
+        160 => "GP64BIT",
+        _ => {
+            return None;
+        }
+    })
+}
+
+fn describe_group_ppc(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        128 => "ALTIVEC",
+        129 => "MODE32",
+        130 => "MODE64",
+        131 => "BOOKE",
+        132 => "NOTBOOKE",
+        133 => "SPE",
+        134 => "VSX",
+        135 => "E500",
+        136 => "PPC4XX",
+        137 => "PPC6XX",
+        138 => "ICBT",
+        139 => "P8ALTIVEC",
+        140 => "P8VECTOR",
+        141 => "QPX",
+        142 => "PS",
+        _ => {
+            return None;
+        }
+    })
+}
+
+fn describe_group_riscv(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        128 => "RV32",
+        129 => "RV64",
+        130 => "A",
+        131 => "C",
+        132 => "D",
+        133 => "F",
+        134 => "M",
         _ => {
             return None;
         }
@@ -238,7 +317,7 @@ fn main() {
     // architecture.
     let (cap_arch, mode, describe_group): (CapArch, Mode, fn(&u8) -> Option<&str>) = match obj_arch
     {
-        ObjArch::X86_64 | ObjArch::X86_64_X32 => {
+        ObjArch::X86_64 | ObjArch::X86_64_X32 | ObjArch::I386 => {
             if obj.is_64() {
                 (CapArch::X86, Mode::Mode64, describe_group_x86)
             } else {
@@ -246,8 +325,32 @@ fn main() {
             }
         }
 
-        ObjArch::Aarch64 | ObjArch::Aarch64_Ilp32 => {
-            (CapArch::ARM64, Mode::Arm, describe_group_aarch64)
+        ObjArch::Aarch64 | ObjArch::Aarch64_Ilp32 | ObjArch::Arm => {
+            if obj.is_64() {
+                (CapArch::ARM64, Mode::Arm, describe_group_arm)
+            } else {
+                (CapArch::ARM, Mode::Arm, describe_group_arm)
+            }
+        }
+
+        ObjArch::Mips | ObjArch::Mips64 | ObjArch::Mips64_N32 => {
+            if obj.is_64() {
+                (CapArch::MIPS, Mode::Mips64, describe_group_mips)
+            } else {
+                (CapArch::MIPS, Mode::Mips32, describe_group_mips)
+            }
+        }
+
+        ObjArch::PowerPc | ObjArch::PowerPc64 => {
+            (CapArch::PPC, Mode::Default, describe_group_ppc)
+        }
+
+        ObjArch::Riscv32 => {
+            (CapArch::RISCV, Mode::RiscV32, describe_group_riscv)
+        }
+
+        ObjArch::Riscv64 => {
+            (CapArch::RISCV, Mode::RiscV64, describe_group_riscv)
         }
 
         _ => {
