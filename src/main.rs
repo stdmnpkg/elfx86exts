@@ -352,7 +352,7 @@ fn main() {
         ("CDI", "Unknown"), // Knights Landing - https://software.intel.com/en-us/blogs/2013/avx-512-instructions
         ("ERI", "Unknown"), // Knights Landing - https://software.intel.com/en-us/blogs/2013/avx-512-instructions
         ("TBM", "Piledriver"), // AMD-only - https://en.wikipedia.org/wiki/Bit_Manipulation_Instruction_Sets#TBM_(Trailing_Bit_Manipulation)
-        ("16BITMODE", "Unknown"),
+        ("16BITMODE", "Pentium"), // all x86 supports x86-16 ISA
         ("NOT64BITMODE", "Unknown"),
         ("SGX", "Skylake"), // https://en.wikipedia.org/wiki/Software_Guard_Extensions
         ("DQI", "Cannon Lake"), // AVX-512 Doubleword and Quadword Instructions
@@ -361,7 +361,7 @@ fn main() {
         ("VLX", "Cannon Lake"), // AVX-512 Vector Length Extensions
         ("SMAP", "Broadwell"), // https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention
         ("NOVLX", "Unknown"), // References in LLVM sources, associated mostly with AVX and AVX2 when VLX are not available
-        ("FPU", "Unknown"),
+        ("FPU", "Pentium"), // Pentium has builtin FPU
     ]
     .iter()
     .cloned()
