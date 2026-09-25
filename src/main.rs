@@ -61,6 +61,7 @@ fn describe_group_x86(g: &u8) -> Option<&'static str> {
         166 => "VLX",
         167 => "SMAP",
         168 => "NOVLX", // line 1623
+        169 => "FPU",
         _ => {
             return None;
         }
@@ -68,7 +69,7 @@ fn describe_group_x86(g: &u8) -> Option<&'static str> {
 }
 
 /// These are from capstone/include/arm64.h
-fn describe_group_arm(g: &u8) -> Option<&'static str> {
+fn describe_group_arm64(g: &u8) -> Option<&'static str> {
     Some(match *g {
         128 => "CRYPTO",  // https://github.com/aquynh/capstone/blob/master/include/aarch64.h
         129 => "FPARMV8", // Appears to map to both fp and fp16 instruction sets
@@ -88,7 +89,7 @@ fn describe_group_arm(g: &u8) -> Option<&'static str> {
         143 => "SVE2AES",
         144 => "SVE2BitPerm",
         145 => "SVE2SHA3",
-        146 => "SV#2SM4",
+        146 => "SVE2SM4",
         147 => "SME",
         148 => "SMEF64",
         149 => "SMEI64",
@@ -98,6 +99,46 @@ fn describe_group_arm(g: &u8) -> Option<&'static str> {
         153 => "V8_1A",
         154 => "V8_3A",
         155 => "V8_4A",
+        _ => {
+            return None;
+        }
+    })
+}
+
+fn describe_group_arm32(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        128 => "CRYPTO",
+        129 => "DATABARRIER",
+        130 => "DIVIDE",
+        131 => "FPARMV8",
+        132 => "MULTPRO",
+        133 => "NEON",
+        134 => "T2EXTRACTPACK",
+        135 => "THUMB2DSP",
+        136 => "TRUSTZONE",
+        137 => "V4T",
+        138 => "V5T",
+        139 => "V5TE",
+        140 => "V6",
+        141 => "V6T2",
+        142 => "V7",
+        143 => "V8",
+        144 => "VFP2",
+        145 => "VFP3",
+        146 => "VFP4",
+        147 => "ARM",
+        148 => "MCLASS",
+        149 => "NOTMCLASS",
+        150 => "THUMB",
+        151 => "THUMB1ONLY",
+        152 => "THUMB2",
+        153 => "PREV8",
+        154 => "FPVMLX",
+        155 => "MULOPS",
+        156 => "CRC",
+        157 => "DPVFP",
+        158 => "V6M",
+        159 => "VIRTUALIZATION",
         _ => {
             return None;
         }
@@ -177,6 +218,38 @@ fn describe_group_riscv(g: &u8) -> Option<&'static str> {
         132 => "D",
         133 => "F",
         134 => "M",
+        _ => {
+            return None;
+        }
+    })
+}
+fn describe_group_sparc(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        128 => "HARDQUAD",
+        129 => "V9",
+        130 => "VIS",
+        131 => "VIS2",
+        132 => "VIS3",
+        133 => "32BIT",
+        134 => "64BIT",
+        _ => {
+            return None;
+        }
+    })
+}
+
+fn describe_group_sh(g: &u8) -> Option<&'static str> {
+    Some(match *g {
+        8 => "SH1",
+        9 => "SH2",
+        10 => "SH2E",
+        11 => "SH2DSP",
+        12 => "SH2A",
+        13 => "SH2AFPU",
+        14 => "SH3",
+        15 => "SH3DSP",
+        16 => "SH4",
+        17 => "SH4A",
         _ => {
             return None;
         }
@@ -288,6 +361,7 @@ fn main() {
         ("VLX", "Cannon Lake"), // AVX-512 Vector Length Extensions
         ("SMAP", "Broadwell"), // https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention
         ("NOVLX", "Unknown"), // References in LLVM sources, associated mostly with AVX and AVX2 when VLX are not available
+        ("FPU", "Unknown"),
     ]
     .iter()
     .cloned()
@@ -317,41 +391,29 @@ fn main() {
     // architecture.
     let (cap_arch, mode, describe_group): (CapArch, Mode, fn(&u8) -> Option<&str>) = match obj_arch
     {
-        ObjArch::X86_64 | ObjArch::X86_64_X32 | ObjArch::I386 => {
-            if obj.is_64() {
-                (CapArch::X86, Mode::Mode64, describe_group_x86)
-            } else {
-                (CapArch::X86, Mode::Mode32, describe_group_x86)
-            }
+        ObjArch::X86_64 | ObjArch::X86_64_X32 => {
+            (CapArch::X86, Mode::Mode64, describe_group_x86)
+        }
+        ObjArch::I386 => (CapArch::X86, Mode::Mode32, describe_group_x86),
+
+        ObjArch::Aarch64 | ObjArch::Aarch64_Ilp32 => {
+            (CapArch::ARM64, Mode::Arm, describe_group_arm64)
+        }
+        ObjArch::Arm => (CapArch::ARM, Mode::Arm, describe_group_arm32),
+
+        ObjArch::Mips64 | ObjArch::Mips64_N32 => (CapArch::MIPS, Mode::Mips64, describe_group_mips),
+        ObjArch::Mips => (CapArch::MIPS, Mode::Mips32, describe_group_mips),
+
+        ObjArch::PowerPc | ObjArch::PowerPc64 => (CapArch::PPC, Mode::Default, describe_group_ppc),
+
+        ObjArch::Riscv64 => (CapArch::RISCV, Mode::RiscV64, describe_group_riscv),
+        ObjArch::Riscv32 => (CapArch::RISCV, Mode::RiscV32, describe_group_riscv),
+
+        ObjArch::Sparc | ObjArch::Sparc32Plus | ObjArch::Sparc64 => {
+            (CapArch::SPARC, Mode::Default, describe_group_sparc)
         }
 
-        ObjArch::Aarch64 | ObjArch::Aarch64_Ilp32 | ObjArch::Arm => {
-            if obj.is_64() {
-                (CapArch::ARM64, Mode::Arm, describe_group_arm)
-            } else {
-                (CapArch::ARM, Mode::Arm, describe_group_arm)
-            }
-        }
-
-        ObjArch::Mips | ObjArch::Mips64 | ObjArch::Mips64_N32 => {
-            if obj.is_64() {
-                (CapArch::MIPS, Mode::Mips64, describe_group_mips)
-            } else {
-                (CapArch::MIPS, Mode::Mips32, describe_group_mips)
-            }
-        }
-
-        ObjArch::PowerPc | ObjArch::PowerPc64 => {
-            (CapArch::PPC, Mode::Default, describe_group_ppc)
-        }
-
-        ObjArch::Riscv32 => {
-            (CapArch::RISCV, Mode::RiscV32, describe_group_riscv)
-        }
-
-        ObjArch::Riscv64 => {
-            (CapArch::RISCV, Mode::RiscV64, describe_group_riscv)
-        }
+        ObjArch::SuperH => (CapArch::SH, Mode::Sh2, describe_group_sh),
 
         _ => {
             // This could plausibly be an error exit, but it doesn't seem
